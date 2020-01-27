@@ -117,8 +117,8 @@ fn mark_impl<T: Debug>(
     match subformulas.get_by_left(&i).unwrap() {
         False => (),
         True => {
-            for (i, state_ex) in lts.iter_mut() {
-                state_ex.mark(*i);
+            for (_, state_ex) in lts.iter_mut() {
+                state_ex.mark(i);
             }
         }
         Prop(ref p) => {
