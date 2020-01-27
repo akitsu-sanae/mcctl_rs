@@ -31,7 +31,7 @@ pub fn lts<T: Eq + Hash>(
     f.write(b"digraph {{").unwrap();
 
     // emit states
-    for (id, state_ex) in lts.iter() {
+    for (id, state_ex) in lts.0.iter() {
         f.write_fmt(format_args!("{} [label=\"{}\\n", id, id))
             .unwrap();
         for loc in state_ex.state.locations.iter() {
@@ -52,7 +52,7 @@ pub fn lts<T: Eq + Hash>(
     }
 
     // emit transitions
-    for (src_id, state_ex) in lts.iter() {
+    for (src_id, state_ex) in lts.0.iter() {
         for (label, dst_id) in state_ex.transs.iter() {
             f.write_fmt(format_args!(
                 "{} -> {} [label=\"{}\"];\n",

@@ -107,95 +107,61 @@ fn mark_impl<T: Debug>(
 ) {
     use Formula::*;
     match subformulas.get_by_left(&i).unwrap() {
-        Prop(ref p) => {
-            for (_, state_ex) in lts.iter_mut() {
-                if prop_valuate(p, &state_ex.state.vars) {
-                    state_ex.mark(i);
-                }
-            }
-        }
+        Prop(ref p) => lts.update_mark(|state_ex| prop_valuate(p, &state_ex.state.vars), i),
         Not(ref f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
-            for (_, state_ex) in lts.iter_mut() {
-                if !state_ex.is_marked(*f_index) {
-                    state_ex.mark(i)
-                }
-            }
+            lts.update_mark(|state_ex| !state_ex.is_marked(*f_index), i);
         }
         And(box ref f1, box ref f2) => {
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
-            for (_, state_ex) in lts.iter_mut() {
-                if state_ex.is_marked(*f1_index) && state_ex.is_marked(*f2_index) {
-                    state_ex.mark(i)
-                }
-            }
+            lts.update_mark(
+                |state_ex| state_ex.is_marked(*f1_index) && state_ex.is_marked(*f2_index),
+                i,
+            );
         }
         Or(box ref f1, box ref f2) => {
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
-            for (_, state_ex) in lts.iter_mut() {
-                if state_ex.is_marked(*f1_index) || state_ex.is_marked(*f2_index) {
-                    state_ex.mark(i)
-                }
-            }
+            lts.update_mark(
+                |state_ex| state_ex.is_marked(*f1_index) || state_ex.is_marked(*f2_index),
+                i,
+            );
         }
         EX(box ref f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
-            let need_update_ids = {
-                let mut state_ids = vec![];
-                for (current_id, state_ex) in lts.iter() {
-                    for (_, succ_id) in state_ex.transs.iter() {
-                        if lts.get(&succ_id).unwrap().is_marked(*f_index) {
-                            state_ids.push(*current_id);
-                            break;
-                        }
-                    }
-                }
-                state_ids
-            };
+            let need_update_ids = lts.find_states(|_, state_ex| {
+                state_ex
+                    .transs
+                    .iter()
+                    .any(|(_, succ_id)| lts.0.get(&succ_id).unwrap().is_marked(*f_index))
+            });
             for state_id in need_update_ids {
-                lts.get_mut(&state_id).unwrap().mark(i)
+                lts.0.get_mut(&state_id).unwrap().mark(i)
             }
         }
         EU(box ref f1, box ref f2) => {
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
 
-            let mut need_update_ids = {
-                let mut state_ids = vec![];
-                for (id, state_ex) in lts.iter() {
-                    if state_ex.is_marked(*f2_index) {
-                        state_ids.push(*id);
-                    }
-                }
-                state_ids
-            };
             use std::collections::VecDeque;
+            let mut need_update_ids = lts.find_states(|_, state_ex| state_ex.is_marked(*f2_index));
             let mut queue = VecDeque::from(need_update_ids.clone());
             loop {
                 if let Some(eu_id) = queue.pop_front() {
-                    for (state_id, state_ex) in lts.iter() {
-                        if !state_ex.transs.iter().any(|(_, x)| *x == eu_id) {
-                            continue;
-                        }
-                        if !state_ex.is_marked(*f1_index) {
-                            continue;
-                        }
-                        if need_update_ids.iter().any(|x| x == state_id) {
-                            // already exists
-                            continue;
-                        }
-                        queue.push_back(*state_id);
-                        need_update_ids.push(*state_id);
-                    }
+                    let mut founds = lts.find_states(|state_id, state_ex| {
+                        state_ex.transs.iter().any(|(_, x)| *x == eu_id)
+                            && state_ex.is_marked(*f1_index)
+                            && !need_update_ids.iter().any(|x| *x == state_id) // not already exists
+                    });
+                    queue.append(&mut VecDeque::from(founds.clone()));
+                    need_update_ids.append(&mut founds);
                 } else {
                     break;
                 }
             }
-
             for state_id in need_update_ids {
-                lts.get_mut(&state_id).unwrap().mark(i)
+                lts.0.get_mut(&state_id).unwrap().mark(i)
             }
         }
         _ => unimplemented!(),

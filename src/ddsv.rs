@@ -89,7 +89,29 @@ impl<T> StateEx<T> {
     }
 }
 
-pub type Lts<T> = HashMap<usize, StateEx<T>>;
+pub struct Lts<T>(pub HashMap<usize, StateEx<T>>);
+
+impl<T> Lts<T> {
+    pub fn new() -> Self {
+        Lts(HashMap::new())
+    }
+    pub fn update_mark(&mut self, pred: impl Fn(&StateEx<T>) -> bool, i: usize) {
+        for (_, state_ex) in self.0.iter_mut() {
+            if pred(state_ex) {
+                state_ex.mark(i)
+            }
+        }
+    }
+    pub fn find_states(&self, pred: impl Fn(usize, &StateEx<T>) -> bool) -> Vec<usize> {
+        let mut result = vec![];
+        for (state_id, state_ex) in self.0.iter() {
+            if pred(*state_id, state_ex) {
+                result.push(*state_id);
+            }
+        }
+        result
+    }
+}
 
 fn pick_init_location<T>(p: &Process<T>) -> Result<Location, String> {
     match p.first() {
@@ -168,7 +190,7 @@ fn conv_lts<T: Clone + Hash + Eq>(
                 (label.clone(), *dst_id)
             })
             .collect();
-        lts.insert(
+        lts.0.insert(
             *id,
             StateEx {
                 state: state.clone(),
