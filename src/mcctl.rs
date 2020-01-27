@@ -4,8 +4,6 @@ pub type Prop = String;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Formula {
-    False,
-    True,
     Prop(Prop),
     Not(Box<Formula>),
     And(Box<Formula>, Box<Formula>),
@@ -21,14 +19,6 @@ impl Formula {
         fn unfold_impl(f: Formula, mut acc: BiMap<usize, Formula>) -> BiMap<usize, Formula> {
             use Formula::*;
             match f {
-                False => {
-                    acc.insert(acc.len(), False);
-                    acc
-                }
-                True => {
-                    acc.insert(acc.len(), True);
-                    acc
-                }
                 Prop(p) => {
                     acc.insert(acc.len(), Prop(p));
                     acc
@@ -64,8 +54,6 @@ impl Formula {
                 _ => unimplemented!(),
             }
         }
-        let mut acc = BiMap::new();
-        acc.insert(0, Formula::True);
         unfold_impl(self, BiMap::new())
     }
 }
@@ -75,8 +63,6 @@ impl fmt::Display for Formula {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         use Formula::*;
         match self {
-            False => write!(fmt, "false"),
-            True => write!(fmt, "true"),
             Prop(ref p) => write!(fmt, "{}", p),
             Not(ref f) => write!(fmt, "(not {})", f),
             And(ref lhs, ref rhs) => write!(fmt, "(and {} {})", lhs, rhs),
@@ -121,12 +107,6 @@ fn mark_impl<T: Debug>(
 ) {
     use Formula::*;
     match subformulas.get_by_left(&i).unwrap() {
-        False => (),
-        True => {
-            for (_, state_ex) in lts.iter_mut() {
-                state_ex.mark(i);
-            }
-        }
         Prop(ref p) => {
             for (_, state_ex) in lts.iter_mut() {
                 if prop_valuate(p, &state_ex.state.vars) {
