@@ -97,5 +97,5 @@ fn main() {
 
     let show_vars = |vars: &Vars| format!("x={}", vars.x);
 
-    viz::lts(show_vars, &lts, fs);
+    viz::lts("test2.dot", show_vars, &lts, fs);
 }

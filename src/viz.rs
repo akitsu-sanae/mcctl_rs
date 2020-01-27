@@ -19,38 +19,47 @@ pub fn process<T>(p: &Process<T>) {
 use bimap::BiMap;
 use std::hash::Hash;
 pub fn lts<T: Eq + Hash>(
+    filename: &str,
     show_vars: fn(&T) -> String,
     lts: &Lts<T>,
     subformula_list: BiMap<usize, Formula>,
 ) {
-    println!("digraph {{");
+    use std::fs;
+    use std::io::{BufWriter, Write};
+    let mut f = BufWriter::new(fs::File::create(filename).expect("cannot create output file."));
+
+    f.write(b"digraph {{").unwrap();
 
     // emit states
     for (id, state_ex) in lts.iter() {
-        // for (id, (state, transs, marked)) in lts.iter() {
-        print!("{} [label=\"{}\\n", id, id);
+        f.write_fmt(format_args!("{} [label=\"{}\\n", id, id))
+            .unwrap();
         for loc in state_ex.state.locations.iter() {
-            print!("{} ", loc);
+            f.write_fmt(format_args!("{}", loc)).unwrap();
         }
-        print!("\\n{}", show_vars(&state_ex.state.vars));
+        f.write_fmt(format_args!("\\n{}", show_vars(&state_ex.state.vars)))
+            .unwrap();
         for (i, formula) in subformula_list.iter() {
             if state_ex.is_marked(*i) {
-                print!("\\n{}", formula)
+                f.write_fmt(format_args!("\\n{}", formula)).unwrap();
             }
         }
-        print!("\",");
+        f.write(b"\",").unwrap();
         if state_ex.is_marked(subformula_list.len() - 1) {
-            print!("style=filled,fillcolor=palegreen");
+            f.write(b"style=filled,fillcolor=palegreen").unwrap();
         }
-        println!("];");
+        f.write(b"];\n").unwrap();
     }
 
     // emit transitions
     for (src_id, state_ex) in lts.iter() {
         for (label, dst_id) in state_ex.transs.iter() {
-            println!("{} -> {} [label=\"{}\"];", src_id, dst_id, label)
+            f.write_fmt(format_args!(
+                "{} -> {} [label=\"{}\"];\n",
+                src_id, dst_id, label
+            ))
+            .unwrap()
         }
     }
-
-    println!("}}");
+    f.write(b"}}").unwrap();
 }

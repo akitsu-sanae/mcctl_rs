@@ -101,5 +101,5 @@ fn main() {
 
     let show_vars = |vars: &Vars| format!("x={} y={} z={}", vars.x, vars.y, vars.z);
 
-    viz::lts(show_vars, &lts, fs);
+    viz::lts("test1.dot", show_vars, &lts, fs);
 }
