@@ -55,6 +55,12 @@ impl Formula {
                     acc.insert(acc.len(), EX(Box::new(f)));
                     acc
                 }
+                EU(box f1, box f2) => {
+                    let acc = unfold_impl(f1.clone(), acc);
+                    let mut acc = unfold_impl(f2.clone(), acc);
+                    acc.insert(acc.len(), EU(Box::new(f1), Box::new(f2)));
+                    acc
+                }
                 _ => unimplemented!(),
             }
         }
@@ -168,6 +174,46 @@ fn mark_impl<T: Debug>(
                 }
                 state_ids
             };
+            for state_id in need_update_ids {
+                lts.get_mut(&state_id).unwrap().mark(i)
+            }
+        }
+        EU(box ref f1, box ref f2) => {
+            let f1_index = subformulas.get_by_right(f1).unwrap();
+            let f2_index = subformulas.get_by_right(f2).unwrap();
+
+            let mut need_update_ids = {
+                let mut state_ids = vec![];
+                for (id, state_ex) in lts.iter() {
+                    if state_ex.is_marked(*f2_index) {
+                        state_ids.push(*id);
+                    }
+                }
+                state_ids
+            };
+            use std::collections::VecDeque;
+            let mut queue = VecDeque::from(need_update_ids.clone());
+            loop {
+                if let Some(eu_id) = queue.pop_front() {
+                    for (state_id, state_ex) in lts.iter() {
+                        if !state_ex.transs.iter().any(|(_, x)| *x == eu_id) {
+                            continue;
+                        }
+                        if !state_ex.is_marked(*f1_index) {
+                            continue;
+                        }
+                        if need_update_ids.iter().any(|x| x == state_id) {
+                            // already exists
+                            continue;
+                        }
+                        queue.push_back(*state_id);
+                        need_update_ids.push(*state_id);
+                    }
+                } else {
+                    break;
+                }
+            }
+
             for state_id in need_update_ids {
                 lts.get_mut(&state_id).unwrap().mark(i)
             }
