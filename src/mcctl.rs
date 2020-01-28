@@ -1,4 +1,5 @@
 use crate::ddsv::Lts;
+use std::collections::VecDeque;
 
 pub type Prop = String;
 
@@ -49,6 +50,11 @@ impl Formula {
                     let acc = unfold_impl(f1.clone(), acc);
                     let mut acc = unfold_impl(f2.clone(), acc);
                     acc.insert(acc.len(), EU(Box::new(f1), Box::new(f2)));
+                    acc
+                }
+                EG(box f) => {
+                    let mut acc = unfold_impl(f.clone(), acc);
+                    acc.insert(acc.len(), EG(Box::new(f)));
                     acc
                 }
                 _ => unimplemented!(),
@@ -107,16 +113,16 @@ fn mark_impl<T: Debug>(
 ) {
     use Formula::*;
     match subformulas.get_by_left(&i).unwrap() {
-        Prop(ref p) => lts.update_mark(|state_ex| prop_valuate(p, &state_ex.state.vars), i),
+        Prop(ref p) => lts.update_mark(|_, state_ex| prop_valuate(p, &state_ex.state.vars), i),
         Not(ref f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
-            lts.update_mark(|state_ex| !state_ex.is_marked(*f_index), i);
+            lts.update_mark(|_, state_ex| !state_ex.is_marked(*f_index), i);
         }
         And(box ref f1, box ref f2) => {
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
             lts.update_mark(
-                |state_ex| state_ex.is_marked(*f1_index) && state_ex.is_marked(*f2_index),
+                |_, state_ex| state_ex.is_marked(*f1_index) && state_ex.is_marked(*f2_index),
                 i,
             );
         }
@@ -124,7 +130,7 @@ fn mark_impl<T: Debug>(
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
             lts.update_mark(
-                |state_ex| state_ex.is_marked(*f1_index) || state_ex.is_marked(*f2_index),
+                |_, state_ex| state_ex.is_marked(*f1_index) || state_ex.is_marked(*f2_index),
                 i,
             );
         }
@@ -144,7 +150,6 @@ fn mark_impl<T: Debug>(
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
 
-            use std::collections::VecDeque;
             let mut need_update_ids = lts.find_states(|_, state_ex| state_ex.is_marked(*f2_index));
             let mut queue = VecDeque::from(need_update_ids.clone());
             loop {
@@ -160,6 +165,37 @@ fn mark_impl<T: Debug>(
                     break;
                 }
             }
+            for state_id in need_update_ids {
+                lts.0.get_mut(&state_id).unwrap().mark(i)
+            }
+        }
+        EG(box f) => {
+            let f_index = subformulas.get_by_right(f).unwrap();
+            let mut need_update_ids =
+                Vec::from(lts.find_states(|_, state_ex| state_ex.is_marked(*f_index)));
+
+            // calc gfp
+            loop {
+                let unmark_ids: Vec<_> = need_update_ids
+                    .clone()
+                    .into_iter()
+                    .filter(|state_id| {
+                        let state_ex = lts.0.get(&state_id).unwrap();
+                        !state_ex
+                            .transs
+                            .iter()
+                            .any(|(_, next_id)| need_update_ids.contains(next_id))
+                    })
+                    .collect();
+                if unmark_ids.is_empty() {
+                    // already at fixed point
+                    break;
+                }
+                for unmark_id in unmark_ids {
+                    need_update_ids.retain(|x| *x != unmark_id);
+                }
+            }
+
             for state_id in need_update_ids {
                 lts.0.get_mut(&state_id).unwrap().mark(i)
             }

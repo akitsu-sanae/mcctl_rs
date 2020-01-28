@@ -95,9 +95,9 @@ impl<T> Lts<T> {
     pub fn new() -> Self {
         Lts(HashMap::new())
     }
-    pub fn update_mark(&mut self, pred: impl Fn(&StateEx<T>) -> bool, i: usize) {
-        for (_, state_ex) in self.0.iter_mut() {
-            if pred(state_ex) {
+    pub fn update_mark(&mut self, pred: impl Fn(usize, &StateEx<T>) -> bool, i: usize) {
+        for (state_id, state_ex) in self.0.iter_mut() {
+            if pred(*state_id, state_ex) {
                 state_ex.mark(i)
             }
         }
