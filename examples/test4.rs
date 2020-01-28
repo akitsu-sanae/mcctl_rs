@@ -1,8 +1,12 @@
 extern crate mcctl_rs;
 
-use mcctl_rs::ddsv::{self, ExecUnit, Label, Location, Process, Trans};
-use mcctl_rs::mcctl::{self, Formula, Prop};
-use mcctl_rs::viz;
+use mcctl_rs::{
+    formula::{Formula, Prop},
+    lts::Lts,
+    mark,
+    process::{ExecUnit, Label, Location, Process, Trans},
+    viz,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Vars {
@@ -12,6 +16,13 @@ struct Vars {
 impl Vars {
     fn init() -> Self {
         Vars { x: 1 }
+    }
+}
+
+use std::fmt;
+impl fmt::Display for Vars {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "x={}", self.x)
     }
 }
 
@@ -50,7 +61,7 @@ fn main() {
     }];
 
     let processes = vec![process_p];
-    let mut lts = ddsv::concurrent_composition(Vars::init(), processes).unwrap();
+    let mut lts = Lts::concurrent_composition(Vars::init(), processes).unwrap();
 
     fn prop_valuate(prop: &Prop, vars: &Vars) -> bool {
         match prop.as_str() {
@@ -60,13 +71,11 @@ fn main() {
         }
     }
 
-    let show_vars = |vars: &Vars| format!("x={}", vars.x);
-
     let spec1 = Formula::EG(Box::new(Formula::Prop("x<=7".to_string())));
-    let fs1 = mcctl::mark(&mut lts, prop_valuate, spec1);
-    viz::lts("test4-1.dot", show_vars, &lts, fs1);
+    let fs1 = mark::mark(&mut lts, prop_valuate, spec1);
+    viz::lts("test4-1.dot", &lts, fs1);
 
     let spec2 = Formula::EG(Box::new(Formula::Prop("x>=4".to_string())));
-    let fs2 = mcctl::mark(&mut lts, prop_valuate, spec2);
-    viz::lts("test4-2.dot", show_vars, &lts, fs2);
+    let fs2 = mark::mark(&mut lts, prop_valuate, spec2);
+    viz::lts("test4-2.dot", &lts, fs2);
 }

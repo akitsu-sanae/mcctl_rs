@@ -1,5 +1,4 @@
-use crate::ddsv::{Lts, Process};
-use crate::mcctl::Formula;
+use crate::{formula::Formula, lts::Lts, process::Process};
 
 pub fn process<T>(p: &Process<T>) {
     println!("digraph {{");
@@ -17,10 +16,10 @@ pub fn process<T>(p: &Process<T>) {
 }
 
 use bimap::BiMap;
+use std::fmt::Display;
 use std::hash::Hash;
-pub fn lts<T: Eq + Hash>(
+pub fn lts<T: Eq + Hash + Display>(
     filename: &str,
-    show_vars: fn(&T) -> String,
     lts: &Lts<T>,
     subformula_list: BiMap<usize, Formula>,
 ) {
@@ -37,7 +36,7 @@ pub fn lts<T: Eq + Hash>(
         for loc in state_ex.state.locations.iter() {
             f.write_fmt(format_args!("{}", loc)).unwrap();
         }
-        f.write_fmt(format_args!("\\n{}", show_vars(&state_ex.state.vars)))
+        f.write_fmt(format_args!("\\n{}", &state_ex.state.vars))
             .unwrap();
         for (i, formula) in subformula_list.iter() {
             if state_ex.is_marked(*i) {
