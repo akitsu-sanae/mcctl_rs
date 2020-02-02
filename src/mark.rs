@@ -36,9 +36,8 @@ pub struct Marks {
 }
 
 use bimap::BiMap;
-use std::fmt::Debug;
 use std::hash::Hash;
-pub fn make_marks<T: Debug + Clone + Hash + Eq>(
+pub fn make_marks<T: Clone + Hash + Eq>(
     lts: &mut Lts<T>,
     prop_valuate: fn(&Prop, &T) -> bool,
     spec: Formula,
@@ -55,7 +54,7 @@ pub fn make_marks<T: Debug + Clone + Hash + Eq>(
     }
 }
 
-fn mark_impl<T: Clone + Hash + Eq + Debug>(
+fn mark_impl<T: Clone + Hash + Eq>(
     marks: &mut Vec<Mark>,
     lts: &mut Lts<T>,
     prop_valuate: fn(&Prop, &T) -> bool,
@@ -132,7 +131,7 @@ fn mark_impl<T: Clone + Hash + Eq + Debug>(
         EG(box f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
             let mut need_update_ids =
-                Vec::from(lts.find_states(|state_id, _| marks[state_id].is_marked(*f_index)));
+                lts.find_states(|state_id, _| marks[state_id].is_marked(*f_index));
 
             // calc gfp
             loop {

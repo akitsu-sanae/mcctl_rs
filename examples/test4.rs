@@ -66,7 +66,7 @@ fn main() {
     fn prop_valuate(prop: &Prop, vars: &Vars) -> bool {
         match prop.as_str() {
             "x<=7" => vars.x <= 7,
-            "x>=4" => vars.x <= 4,
+            "x>=4" => vars.x >= 4,
             _ => panic!(),
         }
     }
