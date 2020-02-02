@@ -67,6 +67,6 @@ fn main() {
         Box::new(Formula::Prop("x>=16 and x%4=0".to_string())),
     );
 
-    let fs = mark::mark(&mut lts, prop_valuate, spec);
-    viz::lts("test3.dot", &lts, fs);
+    let marks = mark::make_marks(&mut lts, prop_valuate, spec);
+    viz::lts("test3.dot", &lts, marks);
 }

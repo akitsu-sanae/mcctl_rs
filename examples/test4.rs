@@ -72,10 +72,10 @@ fn main() {
     }
 
     let spec1 = Formula::EG(Box::new(Formula::Prop("x<=7".to_string())));
-    let fs1 = mark::mark(&mut lts, prop_valuate, spec1);
-    viz::lts("test4-1.dot", &lts, fs1);
+    let mark1 = mark::make_marks(&mut lts, prop_valuate, spec1);
+    viz::lts("test4-1.dot", &lts, mark1);
 
     let spec2 = Formula::EG(Box::new(Formula::Prop("x>=4".to_string())));
-    let fs2 = mark::mark(&mut lts, prop_valuate, spec2);
-    viz::lts("test4-2.dot", &lts, fs2);
+    let mark2 = mark::make_marks(&mut lts, prop_valuate, spec2);
+    viz::lts("test4-2.dot", &lts, mark2);
 }

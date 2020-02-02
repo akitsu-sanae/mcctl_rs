@@ -1,5 +1,4 @@
 use std::collections::{HashMap, VecDeque};
-use std::fmt;
 use std::hash::Hash;
 
 use crate::process::{ExecUnit, Label, Location, Process, Trans};
@@ -10,52 +9,22 @@ pub struct State<T> {
     pub locations: Vec<Location>,
 }
 
-struct Mark(pub usize);
-
-impl Mark {
-    fn empty() -> Self {
-        Mark(0)
-    }
-}
-
-impl fmt::Debug for Mark {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#b}", self.0)
-    }
-}
+pub type StateId = usize;
 
 #[derive(Debug)]
 pub struct StateEx<T> {
     pub state: State<T>,
-    pub transs: Vec<(Label, usize)>,
-    mark: Mark,
+    pub transs: Vec<(Label, StateId)>,
 }
 
-impl<T> StateEx<T> {
-    pub fn is_marked(&self, index: usize) -> bool {
-        self.mark.0 & (1 << index) != 0
-    }
-    pub fn mark(&mut self, index: usize) {
-        self.mark.0 |= 1 << index;
-    }
-    pub fn unmark(&mut self, index: usize) {
-        self.mark.0 &= !(1 << index);
-    }
-}
-
-pub struct Lts<T>(pub HashMap<usize, StateEx<T>>);
+#[derive(Debug)]
+pub struct Lts<T>(pub HashMap<StateId, StateEx<T>>);
 
 impl<T: Clone + Hash + Eq> Lts<T> {
     pub fn new() -> Self {
         Lts(HashMap::new())
     }
-    pub fn update_mark(&mut self, pred: impl Fn(usize, &StateEx<T>) -> bool, i: usize) {
-        for (state_id, state_ex) in self.0.iter_mut() {
-            if pred(*state_id, state_ex) {
-                state_ex.mark(i)
-            }
-        }
-    }
+
     pub fn find_states(&self, pred: impl Fn(usize, &StateEx<T>) -> bool) -> Vec<usize> {
         let mut result = vec![];
         for (state_id, state_ex) in self.0.iter() {
@@ -138,7 +107,6 @@ fn bfs<T: Clone + Hash + Eq>(
         StateEx {
             state: init.clone(),
             transs: vec![],
-            mark: Mark::empty(),
         },
     );
     let mut state_dict: HashMap<State<T>, usize> = HashMap::new();
@@ -166,7 +134,6 @@ fn bfs<T: Clone + Hash + Eq>(
                 StateEx {
                     state: state,
                     transs: transs,
-                    mark: Mark::empty(),
                 },
             );
         } else {

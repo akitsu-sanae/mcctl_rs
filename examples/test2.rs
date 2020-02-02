@@ -104,6 +104,6 @@ fn main() {
         Formula::Prop("x=2".to_string()),
     ))))));
 
-    let fs = mark::mark(&mut lts, prop_valuate, spec);
-    viz::lts("test2.dot", &lts, fs);
+    let marks = mark::make_marks(&mut lts, prop_valuate, spec);
+    viz::lts("test2.dot", &lts, marks);
 }

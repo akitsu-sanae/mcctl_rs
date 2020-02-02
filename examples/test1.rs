@@ -73,7 +73,7 @@ fn main() {
         ExecUnit {
             src: Location::new("P3"),
             transs: vec![Trans {
-                label: Label::new("z=1"),
+                label: Label::new("y=0"),
                 dst: Location::new("P4"),
                 guard: |_| true,
                 action: |mut vars| {
@@ -108,7 +108,6 @@ fn main() {
         Box::new(Formula::Not(Box::new(Formula::Prop("z=0".to_string())))),
     );
 
-    let fs = mark::mark(&mut lts, prop_valuate, spec);
-
-    viz::lts("test1.dot", &lts, fs);
+    let marks = mark::make_marks(&mut lts, prop_valuate, spec);
+    viz::lts("test1.dot", &lts, marks);
 }
