@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 
-use crate::process::{ExecUnit, Label, Location, Process, Trans};
+use crate::process::{self, ExecUnit, Label, Location, Process};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State<T> {
@@ -12,24 +12,24 @@ pub struct State<T> {
 pub type StateId = usize;
 
 #[derive(Debug)]
-pub struct StateEx<T> {
+pub struct Trans<T> {
     pub state: State<T>,
-    pub transs: Vec<(Label, StateId)>,
+    pub dst: Vec<(Label, StateId)>,
 }
 
 #[derive(Debug)]
-pub struct Lts<T>(pub HashMap<StateId, StateEx<T>>);
+pub struct Lts<T>(pub Vec<Trans<T>>);
 
 impl<T: Clone + Hash + Eq> Lts<T> {
     pub fn new() -> Self {
-        Lts(HashMap::new())
+        Lts(vec![])
     }
 
-    pub fn find_states(&self, pred: impl Fn(usize, &StateEx<T>) -> bool) -> Vec<usize> {
+    pub fn find_states(&self, pred: impl Fn(usize, &Trans<T>) -> bool) -> Vec<usize> {
         let mut result = vec![];
-        for (state_id, state_ex) in self.0.iter() {
-            if pred(*state_id, state_ex) {
-                result.push(*state_id);
+        for (state_id, trans) in self.0.iter().enumerate() {
+            if pred(state_id, trans) {
+                result.push(state_id);
             }
         }
         result
@@ -73,7 +73,7 @@ fn calc_transitions_from<T: Clone>(
     next: &mut Vec<(Label, State<T>)>,
     current: &Location,
     state: &State<T>,
-    transs: &Vec<Trans<T>>,
+    transs: &Vec<process::Trans<T>>,
 ) {
     for trans in transs {
         if (trans.guard)(&state.vars) {
@@ -102,14 +102,7 @@ fn bfs<T: Clone + Hash + Eq>(
     next_func: impl Fn(&State<T>) -> Vec<(Label, State<T>)>,
 ) -> Lts<T> {
     let mut lts = Lts::new();
-    lts.0.insert(
-        0,
-        StateEx {
-            state: init.clone(),
-            transs: vec![],
-        },
-    );
-    let mut state_dict: HashMap<State<T>, usize> = HashMap::new();
+    let mut state_dict = HashMap::new();
     state_dict.insert(init.clone(), 0);
     let mut queue = VecDeque::new();
     queue.push_back((0, init));
@@ -117,7 +110,7 @@ fn bfs<T: Clone + Hash + Eq>(
     loop {
         if let Some((state_id, state)) = queue.pop_front() {
             let nexts = next_func(&state);
-            let mut transs = Vec::with_capacity(nexts.len());
+            let mut dst = Vec::with_capacity(nexts.len());
             for (label, next_state) in nexts {
                 let next_id = if let Some(id) = state_dict.get(&next_state) {
                     *id // already exists
@@ -127,13 +120,13 @@ fn bfs<T: Clone + Hash + Eq>(
                     queue.push_back((id, next_state.clone()));
                     id
                 };
-                transs.push((label, next_id));
+                dst.push((label, next_id));
             }
             lts.0.insert(
                 state_id,
-                StateEx {
+                Trans {
                     state: state,
-                    transs: transs,
+                    dst: dst,
                 },
             );
         } else {

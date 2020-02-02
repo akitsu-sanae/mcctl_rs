@@ -1,9 +1,10 @@
 use crate::{
     formula::{Formula, Prop},
-    lts::{Lts, StateEx, StateId},
+    lts::{Lts, StateId, Trans},
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
+#[derive(Clone, Copy)]
 pub struct Mark(pub usize);
 
 use std::fmt;
@@ -31,7 +32,7 @@ impl Mark {
 #[derive(Debug)]
 pub struct Marks {
     pub subformulas: BiMap<usize, Formula>,
-    pub marks: HashMap<StateId, Mark>,
+    pub marks: Vec<Mark>,
 }
 
 use bimap::BiMap;
@@ -43,11 +44,7 @@ pub fn make_marks<T: Debug + Clone + Hash + Eq>(
     spec: Formula,
 ) -> Marks {
     let subformulas = spec.unfold();
-    let mut marks: HashMap<StateId, Mark> = lts
-        .0
-        .iter()
-        .map(|(state_id, _)| (*state_id, Mark::empty()))
-        .collect();
+    let mut marks: Vec<Mark> = vec![Mark::empty(); lts.0.len()];
 
     for i in 0..subformulas.len() {
         mark_impl(&mut marks, lts, prop_valuate, i, &subformulas);
@@ -58,8 +55,8 @@ pub fn make_marks<T: Debug + Clone + Hash + Eq>(
     }
 }
 
-fn mark_impl<T: Clone + Hash + Eq>(
-    marks: &mut HashMap<StateId, Mark>,
+fn mark_impl<T: Clone + Hash + Eq + Debug>(
+    marks: &mut Vec<Mark>,
     lts: &mut Lts<T>,
     prop_valuate: fn(&Prop, &T) -> bool,
     i: usize,
@@ -67,49 +64,45 @@ fn mark_impl<T: Clone + Hash + Eq>(
 ) {
     use Formula::*;
     match subformulas.get_by_left(&i).unwrap() {
-        Prop(ref p) => update_mark(marks, lts, i, |_, state_ex| {
-            prop_valuate(p, &state_ex.state.vars)
-        }),
+        Prop(ref p) => update_mark(marks, lts, i, |_, trans| prop_valuate(p, &trans.state.vars)),
         Not(ref f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
             let need_update_ids =
-                lts.find_states(|state_id, _| !marks.get(&state_id).unwrap().is_marked(*f_index));
+                lts.find_states(|state_id, _| !marks[state_id].is_marked(*f_index));
             for state_id in need_update_ids {
-                marks.get_mut(&state_id).unwrap().mark(i)
+                marks[state_id].mark(i)
             }
         }
         And(box ref f1, box ref f2) => {
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
             let need_update_ids = lts.find_states(|state_id, _| {
-                let mark = marks.get(&state_id).unwrap();
-                mark.is_marked(*f1_index) && mark.is_marked(*f2_index)
+                marks[state_id].is_marked(*f1_index) && marks[state_id].is_marked(*f2_index)
             });
             for state_id in need_update_ids {
-                marks.get_mut(&state_id).unwrap().mark(i)
+                marks[state_id].mark(i)
             }
         }
         Or(box ref f1, box ref f2) => {
             let f1_index = subformulas.get_by_right(f1).unwrap();
             let f2_index = subformulas.get_by_right(f2).unwrap();
             let need_update_ids = lts.find_states(|state_id, _| {
-                let mark = marks.get(&state_id).unwrap();
-                mark.is_marked(*f1_index) || mark.is_marked(*f2_index)
+                marks[state_id].is_marked(*f1_index) || marks[state_id].is_marked(*f2_index)
             });
             for state_id in need_update_ids.iter() {
-                marks.get_mut(&state_id).unwrap().mark(i)
+                marks[*state_id].mark(i)
             }
         }
         EX(box ref f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
-            let need_update_ids = lts.find_states(|_, state_ex| {
-                state_ex
-                    .transs
+            let need_update_ids = lts.find_states(|_, trans| {
+                trans
+                    .dst
                     .iter()
-                    .any(|(_, succ_id)| marks.get(&succ_id).unwrap().is_marked(*f_index))
+                    .any(|(_, succ_id)| marks[*succ_id].is_marked(*f_index))
             });
             for state_id in need_update_ids {
-                marks.get_mut(&state_id).unwrap().mark(i)
+                marks[state_id].mark(i)
             }
         }
         EU(box ref f1, box ref f2) => {
@@ -117,13 +110,13 @@ fn mark_impl<T: Clone + Hash + Eq>(
             let f2_index = subformulas.get_by_right(f2).unwrap();
 
             let mut need_update_ids =
-                lts.find_states(|state_id, _| marks.get(&state_id).unwrap().is_marked(*f2_index));
+                lts.find_states(|state_id, _| marks[state_id].is_marked(*f2_index));
             let mut queue = VecDeque::from(need_update_ids.clone());
             loop {
                 if let Some(eu_id) = queue.pop_front() {
-                    let mut founds = lts.find_states(|state_id, state_ex| {
-                        state_ex.transs.iter().any(|(_, x)| *x == eu_id)
-                            && marks.get(&state_id).unwrap().is_marked(*f1_index)
+                    let mut founds = lts.find_states(|state_id, trans| {
+                        trans.dst.iter().any(|(_, x)| *x == eu_id)
+                            && marks[state_id].is_marked(*f1_index)
                             && !need_update_ids.iter().any(|x| *x == state_id) // not already exists
                     });
                     queue.append(&mut VecDeque::from(founds.clone()));
@@ -133,14 +126,13 @@ fn mark_impl<T: Clone + Hash + Eq>(
                 }
             }
             for state_id in need_update_ids {
-                marks.get_mut(&state_id).unwrap().mark(i)
+                marks[state_id].mark(i)
             }
         }
         EG(box f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
-            let mut need_update_ids = Vec::from(
-                lts.find_states(|state_id, _| marks.get(&state_id).unwrap().is_marked(*f_index)),
-            );
+            let mut need_update_ids =
+                Vec::from(lts.find_states(|state_id, _| marks[state_id].is_marked(*f_index)));
 
             // calc gfp
             loop {
@@ -148,9 +140,9 @@ fn mark_impl<T: Clone + Hash + Eq>(
                     .clone()
                     .into_iter()
                     .filter(|state_id| {
-                        let state_ex = lts.0.get(&state_id).unwrap();
-                        !state_ex
-                            .transs
+                        let trans: &Trans<T> = lts.0.get(*state_id).unwrap();
+                        !trans
+                            .dst
                             .iter()
                             .any(|(_, next_id)| need_update_ids.contains(next_id))
                     })
@@ -165,7 +157,7 @@ fn mark_impl<T: Clone + Hash + Eq>(
             }
 
             for state_id in need_update_ids {
-                marks.get_mut(&state_id).unwrap().mark(i)
+                marks[state_id].mark(i)
             }
         }
         _ => unimplemented!(),
@@ -173,14 +165,14 @@ fn mark_impl<T: Clone + Hash + Eq>(
 }
 
 fn update_mark<T>(
-    marks: &mut HashMap<StateId, Mark>,
+    marks: &mut Vec<Mark>,
     lts: &Lts<T>,
     i: usize,
-    pred: impl Fn(StateId, &StateEx<T>) -> bool,
+    pred: impl Fn(StateId, &Trans<T>) -> bool,
 ) {
-    for (state_id, state_ex) in lts.0.iter() {
-        if pred(*state_id, state_ex) {
-            marks.get_mut(state_id).unwrap().mark(i);
+    for (state_id, trans) in lts.0.iter().enumerate() {
+        if pred(state_id, trans) {
+            marks[state_id].mark(i);
         }
     }
 }
