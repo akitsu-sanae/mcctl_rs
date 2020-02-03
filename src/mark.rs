@@ -92,6 +92,16 @@ fn mark_impl<T: Clone + Hash + Eq>(
                 marks[*state_id].mark(i)
             }
         }
+        Impl(box ref f1, box ref f2) => {
+            let f1_index = subformulas.get_by_right(f1).unwrap();
+            let f2_index = subformulas.get_by_right(f2).unwrap();
+            let need_update_ids = lts.find_states(|state_id, _| {
+                !marks[state_id].is_marked(*f1_index) || marks[state_id].is_marked(*f2_index)
+            });
+            for state_id in need_update_ids.iter() {
+                marks[*state_id].mark(i)
+            }
+        }
         EX(box ref f) => {
             let f_index = subformulas.get_by_right(f).unwrap();
             let need_update_ids = lts.find_states(|_, trans| {
@@ -159,7 +169,6 @@ fn mark_impl<T: Clone + Hash + Eq>(
                 marks[state_id].mark(i)
             }
         }
-        _ => unimplemented!(),
     }
 }
 

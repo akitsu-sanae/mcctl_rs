@@ -40,6 +40,12 @@ impl Formula {
                     acc.insert(acc.len(), Or(Box::new(f1), Box::new(f2)));
                     acc
                 }
+                Impl(box f1, box f2) => {
+                    let acc = unfold_impl(f1.clone(), acc);
+                    let mut acc = unfold_impl(f2.clone(), acc);
+                    acc.insert(acc.len(), Impl(Box::new(f1), Box::new(f2)));
+                    acc
+                }
                 EX(box f) => {
                     let mut acc = unfold_impl(f.clone(), acc);
                     acc.insert(acc.len(), EX(Box::new(f)));
@@ -56,7 +62,6 @@ impl Formula {
                     acc.insert(acc.len(), EG(Box::new(f)));
                     acc
                 }
-                _ => unimplemented!(),
             }
         }
         unfold_impl(self, BiMap::new())
